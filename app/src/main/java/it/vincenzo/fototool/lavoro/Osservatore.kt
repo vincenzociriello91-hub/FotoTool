@@ -70,6 +70,7 @@ class Avvio : BroadcastReceiver() {
         Reports.init(ctx)
         Reports.log("Riarmo dopo ${intent.action}")
         Osservatore.programma(ctx)
+        Servizio.avvia(ctx)
         if (Coda.attese(ctx).isNotEmpty()) Elaborazione.avvia(ctx)
     }
 }

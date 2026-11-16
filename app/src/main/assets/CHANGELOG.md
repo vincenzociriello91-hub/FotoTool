@@ -1,3 +1,7 @@
+Versione 1.0.9 — 16/11/2026
+- FotoTool resta attivo con una piccola notifica fissa: ogni nuova foto RAW viene vista subito e migliorata a piena velocità anche ad app chiusa (prima Android la rimandava anche di 47 minuti e la rallentava fino a 5 minuti).
+- La notifica dice quale foto si sta migliorando. Si può silenziare dalle impostazioni delle notifiche senza fermare FotoTool.
+
 Versione 1.0.8 — 16/11/2026
 - Con l'app aperta le foto si migliorano subito, a piena velocità (in background Android rallentava fino a 100-280 secondi per foto).
 - Corretto: la stessa foto poteva essere elaborata due volte di seguito.

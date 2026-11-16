@@ -48,6 +48,8 @@ class FotoToolApp : Application() {
             previous?.uncaughtException(t, e)
         }
         Osservatore.programma(this)
+        if (checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+            it.vincenzo.fototool.lavoro.Servizio.avvia(this)
         rifaiConMotoreNuovo()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {

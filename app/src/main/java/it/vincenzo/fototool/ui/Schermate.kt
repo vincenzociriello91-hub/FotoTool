@@ -135,7 +135,7 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
     val chiedi = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permesso = haFoto(ctx)
         Reports.log("Permessi foto: ${it.entries.joinToString { (k, v) -> "${k.substringAfterLast('.')}=$v" }}")
-        if (permesso) scope.launch(Dispatchers.IO) { Osservatore.programma(ctx); Osservatore.controlla(ctx) }
+        if (permesso) scope.launch(Dispatchers.IO) { Osservatore.programma(ctx); it.vincenzo.fototool.lavoro.Servizio.avvia(ctx); Osservatore.controlla(ctx) }
     }
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Archivio.voci(ctx) } }
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { permesso = haFoto(ctx); onPauseOrDispose { } }
@@ -159,7 +159,8 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
                             ctx.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
                         }) { Text("Apri le impostazioni dell'app") }
                     } else Button(onClick = {
-                        chiedi.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED, Manifest.permission.ACCESS_MEDIA_LOCATION))
+                        chiedi.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+                            Manifest.permission.ACCESS_MEDIA_LOCATION, Manifest.permission.POST_NOTIFICATIONS))
                     }) { Text("Consenti accesso alle foto") }
                 }
                 Sezione("Automatico", Icons.Filled.AutoAwesome, Rgb.Verde,

@@ -45,6 +45,7 @@ object Elaboratore {
         val t0 = t
         fun tappa(n: String) { val o = SystemClock.elapsedRealtime(); tempi.put(n, o - t); t = o }
         inCorso.value = foto.nome
+        Servizio.aggiorna(ctx, foto.nome)
         Reports.log("Elaboro ${foto.nome} (${foto.dimensione shr 20} MB, ${foto.larghezza}x${foto.altezza})")
         d.put("foto", foto.nome).put("dimensioneDng", "${foto.dimensione shr 20} MB").put("stileRichiesto", stileScelto?.nome ?: "dai gusti")
         try {
@@ -117,6 +118,7 @@ object Elaboratore {
             throw e
         } finally {
             inCorso.value = null
+            Servizio.aggiorna(ctx, null)
         }
     }
 
