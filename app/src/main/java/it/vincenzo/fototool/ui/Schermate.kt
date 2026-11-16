@@ -89,6 +89,7 @@ import it.vincenzo.fototool.lavoro.Elaboratore
 import it.vincenzo.fototool.lavoro.Elaborazione
 import it.vincenzo.fototool.lavoro.Galleria
 import it.vincenzo.fototool.lavoro.Osservatore
+import it.vincenzo.fototool.lavoro.Servizio
 import it.vincenzo.fototool.motore.Stili
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -135,7 +136,7 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
     val chiedi = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permesso = haFoto(ctx)
         Reports.log("Permessi foto: ${it.entries.joinToString { (k, v) -> "${k.substringAfterLast('.')}=$v" }}")
-        if (permesso) scope.launch(Dispatchers.IO) { Osservatore.programma(ctx); it.vincenzo.fototool.lavoro.Servizio.avvia(ctx); Osservatore.controlla(ctx) }
+        if (permesso) scope.launch(Dispatchers.IO) { Osservatore.programma(ctx); Servizio.avvia(ctx); Osservatore.controlla(ctx) }
     }
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Archivio.voci(ctx) } }
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { permesso = haFoto(ctx); onPauseOrDispose { } }

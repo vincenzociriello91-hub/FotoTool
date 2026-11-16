@@ -1,5 +1,6 @@
 package it.vincenzo.fototool
 
+import it.vincenzo.fototool.lavoro.Servizio
 import android.app.Application
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -49,7 +50,7 @@ class FotoToolApp : Application() {
         }
         Osservatore.programma(this)
         if (checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED)
-            it.vincenzo.fototool.lavoro.Servizio.avvia(this)
+            Servizio.avvia(this)
         rifaiConMotoreNuovo()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
