@@ -1,3 +1,7 @@
+Versione 1.0.5 — 16/11/2026
+- Rapporti: oltre alle miniature, due ritagli a piena risoluzione (il centro e la zona con più dettaglio) della foto di FotoTool e di quella di Google, per confrontare nitidezza e rumore.
+- Corretto: dopo un aggiornamento il rapporto di chiusura improvvisa arrivava due volte.
+
 Versione 1.0.4 — 16/11/2026
 - Corretta la dominante calda: oltre a tono e saturazione, FotoTool allinea anche il colore medio di ogni canale a quello del JPEG di Google.
 - Toni più vicini a Google (la foto delle piastrelle non esce più più scura).

@@ -156,6 +156,7 @@ object Reports {
         runCatching {
             val leggibile = JSONObject(json.toString())
             leggibile.optJSONObject("dettagli")?.remove("miniature")
+            leggibile.optJSONObject("dettagli")?.remove("ritagli")
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, "$stamp-$reason.json")
                 put(MediaStore.Downloads.MIME_TYPE, "application/json")
@@ -279,7 +280,7 @@ object Reports {
         val exit = runCatching {
             ctx.getSystemService(ActivityManager::class.java).getHistoricalProcessExitReasons(ctx.packageName, 0, 1).firstOrNull()
         }.getOrNull()?.takeIf { it.timestamp > prefs.getLong("ultima_uscita", 0) }
-        exit?.let { prefs.edit().putLong("ultima_uscita", it.timestamp).apply() }
+        exit?.let { prefs.edit().putLong("ultima_uscita", it.timestamp).commit() }
         val serious = exit != null && exit.reason in setOf(
             ApplicationExitInfo.REASON_ANR, ApplicationExitInfo.REASON_CRASH_NATIVE, ApplicationExitInfo.REASON_LOW_MEMORY,
         )

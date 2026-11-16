@@ -1,6 +1,6 @@
 """Decifra i rapporti di FotoTool (cartella del repository FotoTool-rapporti) con la chiave privata.
 
-Uso: python3 leggi_rapporti.py CHIAVE.pem cartella_o_file [... ] [--miniature cartella_uscita]
+Uso: python3 leggi_rapporti.py CHIAVE.pem cartella_o_file [... ] [--miniature cartella_uscita]  (miniature e ritagli al 100%)
 Ogni file del ricevitore è un array di {key, iv, data}: chiave AES-256 cifrata con RSA-OAEP-SHA256, dati AES-GCM.
 """
 import base64, json, os, sys
@@ -37,10 +37,19 @@ def main():
         for n, voce in enumerate(json.load(open(f))):
             r = decifra(priv, voce)
             m = (r.get("dettagli") or {}).pop("miniature", None)
+            rit = (r.get("dettagli") or {}).pop("ritagli", None)
             if m and mini:
                 for tipo, b in m.items():
                     if b:
                         open(os.path.join(mini, f"{os.path.basename(f)[:-5]}_{n}_{tipo}.jpg"), "wb").write(base64.b64decode(b))
+            if isinstance(rit, list):
+                for z in rit:
+                    for tipo in ("prima", "dopo"):
+                        if mini and z.get(tipo):
+                            open(os.path.join(mini, f"{os.path.basename(f)[:-5]}_{n}_{z['zona']}_{tipo}.jpg"), "wb").write(base64.b64decode(z.pop(tipo)))
+                        else:
+                            z.pop(tipo, None)
+                r["dettagli"]["ritagli"] = rit
             print(f"### {f} [{n}]")
             print(json.dumps(r, ensure_ascii=False, indent=1))
 

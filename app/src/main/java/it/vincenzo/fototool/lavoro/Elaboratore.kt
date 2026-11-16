@@ -84,6 +84,8 @@ object Elaboratore {
 
             // miniature per la schermata e per il rapporto
             val dopo = scala(bmp, 384)
+            // ritagli al 100% (nostra e Google, stessa zona) per giudicare dettaglio e rumore dai rapporti
+            runCatching { d.put("ritagli", ritagli(ctx, bmp, dopo, gemello)) }.onFailure { d.put("ritagli", "errore: ${it.message}") }
             bmp.recycle()
             val prima = gemello?.let { runCatching { BitmapFactory.decodeStream(ctx.contentResolver.openInputStream(it.uri), null,
                 BitmapFactory.Options().apply { inSampleSize = campionamento(it.larghezza, it.altezza, 384) }) }.getOrNull() }
@@ -246,14 +248,58 @@ object Elaboratore {
         }?.let { b -> b.hasGainmap().also { b.recycle() } } ?: false
     }.getOrDefault(false)
 
+    private const val LATO_RITAGLIO = 512
+
+    /**
+     * Due ritagli a piena risoluzione: il centro e la zona più ricca di dettaglio (scelta sulla miniatura).
+     * Per ognuno la nostra versione e quella di Google nella stessa zona.
+     */
+    private fun ritagli(ctx: Context, bmp: Bitmap, mini: Bitmap, gemello: Foto?): org.json.JSONArray {
+        // zona con più dettaglio: griglia 4x4 sulla miniatura, energia del gradiente di luminanza
+        val mw = mini.width; val mh = mini.height
+        val px = IntArray(mw * mh).also { mini.getPixels(it, 0, mw, 0, 0, mw, mh) }
+        fun l(x: Int, y: Int) = px[y * mw + x].let { ((it shr 16) and 255) * 3 + ((it shr 8) and 255) * 6 + (it and 255) }
+        var migliore = 0 to 0; var energia = -1L
+        for (gy in 0 until 4) for (gx in 0 until 4) {
+            var e = 0L
+            for (y in gy * mh / 4 until (gy + 1) * mh / 4 - 1) for (x in gx * mw / 4 until (gx + 1) * mw / 4 - 1)
+                e += kotlin.math.abs(l(x + 1, y) - l(x, y)) + kotlin.math.abs(l(x, y + 1) - l(x, y))
+            if (e > energia && !(gx in 1..2 && gy in 1..2)) // le 4 celle centrali le copre già il ritaglio "centro" { energia = e; migliore = gx to gy }
+        }
+        val zone = listOf(
+            "centro" to (0.5f to 0.5f),
+            "dettaglio" to ((migliore.first + 0.5f) / 4f to (migliore.second + 0.5f) / 4f),
+        )
+        val dec = gemello?.let { g -> runCatching { ctx.contentResolver.openInputStream(g.uri)?.use { android.graphics.BitmapRegionDecoder.newInstance(it) } }.getOrNull() }
+        val out = org.json.JSONArray()
+        try {
+            for ((nome, c) in zone) {
+                val lato = minOf(LATO_RITAGLIO, bmp.width, bmp.height)
+                val x = (c.first * bmp.width - lato / 2).toInt().coerceIn(0, bmp.width - lato)
+                val y = (c.second * bmp.height - lato / 2).toInt().coerceIn(0, bmp.height - lato)
+                val nostro = Bitmap.createBitmap(bmp, x, y, lato, lato)
+                val o = JSONObject().put("zona", nome).put("x", x).put("y", y).put("lato", lato).put("dopo", b64(nostro, 88))
+                nostro.recycle()
+                if (dec != null) {
+                    // stessa zona nel JPEG di Google (le dimensioni possono differire di qualche pixel per il ritaglio)
+                    val sx = dec.width.toFloat() / bmp.width; val sy = dec.height.toFloat() / bmp.height
+                    val gx = (x * sx).toInt().coerceIn(0, maxOf(0, dec.width - lato)); val gy = (y * sy).toInt().coerceIn(0, maxOf(0, dec.height - lato))
+                    dec.decodeRegion(android.graphics.Rect(gx, gy, gx + lato, gy + lato), null)?.let { o.put("prima", b64(it, 88)); it.recycle() }
+                }
+                out.put(o)
+            }
+        } finally { dec?.recycle() }
+        return out
+    }
+
     private fun scala(b: Bitmap, lato: Int): Bitmap {
         val s = lato.toFloat() / maxOf(b.width, b.height)
         return if (s >= 1f) b else Bitmap.createScaledBitmap(b, (b.width * s).toInt().coerceAtLeast(1), (b.height * s).toInt().coerceAtLeast(1), true)
     }
 
-    private fun b64(b: Bitmap): String {
+    private fun b64(b: Bitmap, qualita: Int = 70): String {
         val o = ByteArrayOutputStream()
-        b.compress(Bitmap.CompressFormat.JPEG, 70, o)
+        b.compress(Bitmap.CompressFormat.JPEG, qualita, o)
         return Base64.encodeToString(o.toByteArray(), Base64.NO_WRAP)
     }
 }
