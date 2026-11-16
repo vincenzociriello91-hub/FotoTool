@@ -1,3 +1,8 @@
+Versione 1.0.6 — 16/11/2026
+- Foto più nitide: nitidezza più forte su due scale (dettaglio fine e medio) e meno levigatura del rumore, che nei RAW HDR+ è già basso. Limite sui bordi forti per evitare aloni.
+- Tolto l'alone viola (aberrazione cromatica) vicino alle luci forti.
+- Le foto già migliorate vengono rifatte da sole.
+
 Versione 1.0.5 — 16/11/2026
 - Rapporti: oltre alle miniature, due ritagli a piena risoluzione (il centro e la zona con più dettaglio) della foto di FotoTool e di quella di Google, per confrontare nitidezza e rumore.
 - Corretto: dopo un aggiornamento il rapporto di chiusura improvvisa arrivava due volte.

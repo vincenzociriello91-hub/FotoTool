@@ -23,7 +23,7 @@ data class Stile(
     val contrasto: Float = 0.12f,
     val saturazione: Float = 1.0f,
     val vivacita: Float = 0.08f,
-    val nitidezza: Float = 0.45f,
+    val nitidezza: Float = 0.85f,
     val rumoreLuma: Float = 1.0f,
     val rumoreCroma: Float = 1.0f,
     val biancoNero: Boolean = false,
@@ -34,10 +34,10 @@ data class Stile(
 object Stili {
     val NATURALE = Stile("Naturale")
     val VIVIDO = Stile("Vivido", compressioneOmbre = 0.74f, compressioneLuci = 0.58f, dettaglio = 1.18f, contrasto = 0.22f,
-        saturazione = 1.10f, vivacita = 0.25f, nitidezza = 0.6f)
+        saturazione = 1.10f, vivacita = 0.25f, nitidezza = 1.0f)
     val MORBIDO = Stile("Morbido", compressioneOmbre = 0.72f, compressioneLuci = 0.6f, dettaglio = 1.0f, contrasto = 0.0f,
-        saturazione = 0.96f, vivacita = 0.05f, nitidezza = 0.25f, rumoreLuma = 1.3f, tonoGoogle = 0.5f)
-    val BIANCO_NERO = Stile("Bianco e nero", dettaglio = 1.15f, contrasto = 0.25f, nitidezza = 0.55f, biancoNero = true)
+        saturazione = 0.96f, vivacita = 0.05f, nitidezza = 0.45f, rumoreLuma = 1.3f, tonoGoogle = 0.5f)
+    val BIANCO_NERO = Stile("Bianco e nero", dettaglio = 1.15f, contrasto = 0.25f, nitidezza = 0.9f, biancoNero = true)
     val TUTTI = listOf(NATURALE, VIVIDO, MORBIDO, BIANCO_NERO)
     fun perNome(n: String?) = TUTTI.firstOrNull { it.nome == n } ?: NATURALE
 }
@@ -279,7 +279,7 @@ object Sviluppo {
         val xMid = GRIGIO / guadEsp
         val sigmaG = (1.16 * guadEsp * sqrt(max(sS * xMid + sO, 1e-12))).toFloat()
         par["rumore a grigio medio (gamma)"] = "%.4f".format(sigmaG)
-        val epsLuma = (1.5f * sigmaG * stile.rumoreLuma).pow(2)
+        val epsLuma = (0.8f * sigmaG * stile.rumoreLuma).pow(2)
         val raggioCroma = when { sigmaG > 0.02f -> 6; sigmaG > 0.008f -> 4; else -> 2 }
         par["riduzione rumore"] = "luma eps %.2e, croma raggio %d".format(epsLuma, raggioCroma)
 
@@ -399,14 +399,30 @@ object Sviluppo {
                         val sfoc = (4 * gv[i] + 2 * (gv[i - 1] + gv[i + 1] + gv[i - W] + gv[i + W]) +
                             gv[i - W - 1] + gv[i - W + 1] + gv[i + W - 1] + gv[i + W + 1]) / 16f
                         d = gv[i] - sfoc
-                        val soglia = 0.006f
+                        val soglia = 0.004f
                         d = if (abs(d) < soglia) d * (abs(d) / soglia) else d
                         d *= quanto * 1.6f
+                        if (c > 1 && c < W - 2 && y > 1 && y < bh - 2) {
+                            val medio = (gv[i - 2] + gv[i + 2] + gv[i - 2 * W] + gv[i + 2 * W]) / 4f
+                            d += (sfoc - medio) * quanto * 0.6f
+                        }
+                        d = d.coerceIn(-0.12f, 0.12f) // niente aloni bianchi o neri sui bordi forti
+                    }
+                    var rr = R[i]; var gg = G[i]; var bb = B[i]
+                    // alone viola (aberrazione cromatica) accanto alle luci forti: si toglie il colore, non la luce
+                    if (min(rr, bb) - gg > 0.03f && bb >= gg && y >= 3 && y < bh - 3 && c >= 3 && c < W - 3) {
+                        var mx = 0f
+                        for (k in 1..3) mx = max(mx, max(max(gv[i - k], gv[i + k]), max(gv[i - k * W], gv[i + k * W])))
+                        if (mx > 0.8f) {
+                            val l = gv[i]
+                            val q = (1f - ((mx - 0.8f) / 0.12f).coerceIn(0f, 1f) * 0.8f)
+                            rr = l + (rr - l) * q; gg = l + (gg - l) * q; bb = l + (bb - l) * q
+                        }
                     }
                     val rum = (((c * 73856093) xor (r * 19349663)) and 0xFF) / 255f - 0.5f
-                    val a = ((R[i] + d) * 255f + rum).roundToInt().coerceIn(0, 255)
-                    val b = ((G[i] + d) * 255f + rum).roundToInt().coerceIn(0, 255)
-                    val e2 = ((B[i] + d) * 255f + rum).roundToInt().coerceIn(0, 255)
+                    val a = ((rr + d) * 255f + rum).roundToInt().coerceIn(0, 255)
+                    val b = ((gg + d) * 255f + rum).roundToInt().coerceIn(0, 255)
+                    val e2 = ((bb + d) * 255f + rum).roundToInt().coerceIn(0, 255)
                     out[yo * cw + (c - cx)] = (0xFF shl 24) or (a shl 16) or (b shl 8) or e2
                 }
             }
