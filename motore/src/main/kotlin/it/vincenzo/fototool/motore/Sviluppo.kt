@@ -21,12 +21,14 @@ data class Stile(
     val dettaglio: Float = 1.08f,
     /** Contrasto globale a S: 0 = nessuno. */
     val contrasto: Float = 0.12f,
-    val saturazione: Float = 1.02f,
-    val vivacita: Float = 0.12f,
+    val saturazione: Float = 1.0f,
+    val vivacita: Float = 0.08f,
     val nitidezza: Float = 0.45f,
     val rumoreLuma: Float = 1.0f,
     val rumoreCroma: Float = 1.0f,
     val biancoNero: Boolean = false,
+    /** Quanto seguire tono e saturazione del JPEG di Google (0 = per niente, 1 = uguale). */
+    val tonoGoogle: Float = 0.85f,
 )
 
 object Stili {
@@ -34,7 +36,7 @@ object Stili {
     val VIVIDO = Stile("Vivido", compressioneOmbre = 0.74f, compressioneLuci = 0.58f, dettaglio = 1.18f, contrasto = 0.22f,
         saturazione = 1.10f, vivacita = 0.25f, nitidezza = 0.6f)
     val MORBIDO = Stile("Morbido", compressioneOmbre = 0.72f, compressioneLuci = 0.6f, dettaglio = 1.0f, contrasto = 0.0f,
-        saturazione = 0.96f, vivacita = 0.05f, nitidezza = 0.25f, rumoreLuma = 1.3f)
+        saturazione = 0.96f, vivacita = 0.05f, nitidezza = 0.25f, rumoreLuma = 1.3f, tonoGoogle = 0.5f)
     val BIANCO_NERO = Stile("Bianco e nero", dettaglio = 1.15f, contrasto = 0.25f, nitidezza = 0.55f, biancoNero = true)
     val TUTTI = listOf(NATURALE, VIVIDO, MORBIDO, BIANCO_NERO)
     fun perNome(n: String?) = TUTTI.firstOrNull { it.nome == n } ?: NATURALE
@@ -211,8 +213,12 @@ object Sviluppo {
         val base = FloatArray(n) { coA[it] * logY[it] + coB[it] }
         tappa("zone")
 
-        val cOmbre = stile.compressioneOmbre
-        val cLuci = if (gamma > 10f) stile.compressioneLuci - 0.06f else stile.compressioneLuci
+        // Luci e ombre per zone solo quanto serve: nulle sotto 5 stop di gamma dinamica, piene da 11 in su.
+        // (Con compressione fissa le scene normali venivano piatte e slavate: rapporti del 16/11/2026.)
+        val forzaZone = ((gamma - 5f) / 6f).coerceIn(0f, 1f)
+        val cOmbre = 1f - (1f - stile.compressioneOmbre) * forzaZone
+        val cLuci = 1f - (1f - stile.compressioneLuci) * forzaZone
+        par["forza zone"] = "%.2f".format(forzaZone)
         val mid = log2(GRIGIO)
         /** Guadagno locale (stop) per una luminanza di base b dopo l'esposizione. */
         fun guadagnoZona(b: Float, dettaglio: Float): Float {
@@ -250,6 +256,19 @@ object Sviluppo {
         par["luci e ombre (stop) min/max"] = "%.2f / %.2f".format(guad.min(), guad.max())
         par["zone"] = "raggio $raggio su ${lw}x$lh, eps $EPS_ZONE"
         tappa("esposizione")
+
+        // ---------- tono e saturazione come il JPEG di Google ----------
+        val tono = opz.riferimento?.let { rf ->
+            val lut = curvaDaRiferimento(rf, n, lr, lg, lb, stile) { i ->
+                val y = 2f.pow(logY[i] + ev + guad[i])
+                val s = if (y > 1e-6f) curva(y) / y else 0f
+                floatArrayOf(lowR[i] * 2f.pow(ev + guad[i]) * s, lowG[i] * 2f.pow(ev + guad[i]) * s, lowB[i] * 2f.pow(ev + guad[i]) * s)
+            }
+            par["tono da Google"] = "forza ${stile.tonoGoogle}, saturazione x%.2f".format(lut.second)
+            lut
+        }
+        val lutTono = tono?.first
+        val satGoogle = tono?.second ?: 1f
 
         // ---------- rumore stimato ----------
         val prof = dng.profiloRumore
@@ -339,7 +358,7 @@ object Sviluppo {
                     if (stile.biancoNero) { rr = yd; gg = yd; bb = yd } else {
                         val mx = max(rr, max(gg, bb)); val mn = min(rr, min(gg, bb))
                         val sat = if (mx > 1e-6f) (mx - mn) / mx else 0f
-                        var kk = stile.saturazione * (1f + stile.vivacita * (1f - sat))
+                        var kk = satGoogle * stile.saturazione * (1f + stile.vivacita * (1f - sat))
                         if (pelle(rr, gg, bb)) kk = 1f + (kk - 1f) * 0.4f
                         rr = yd + (rr - yd) * kk; gg = yd + (gg - yd) * kk; bb = yd + (bb - yd) * kk
                         // fuori gamma: verso il grigio della stessa luminanza
@@ -349,9 +368,16 @@ object Sviluppo {
                         if (mn2 < 0f && yd - mn2 > 1e-6f) tt = min(tt, yd / (yd - mn2))
                         if (tt < 1f) { rr = yd + (rr - yd) * tt; gg = yd + (gg - yd) * tt; bb = yd + (bb - yd) * tt }
                     }
-                    R[i] = s_curva(Colore.aSrgb(rr), stile.contrasto)
-                    G[i] = s_curva(Colore.aSrgb(gg), stile.contrasto)
-                    B[i] = s_curva(Colore.aSrgb(bb), stile.contrasto)
+                    var r2 = s_curva(Colore.aSrgb(rr), stile.contrasto)
+                    var g2 = s_curva(Colore.aSrgb(gg), stile.contrasto)
+                    var b2 = s_curva(Colore.aSrgb(bb), stile.contrasto)
+                    if (lutTono != null) {
+                        val l = lr * r2 + lg * g2 + lb * b2
+                        val t = lutTono[(l * 255f).toInt().coerceIn(0, 255)] +
+                            (lutTono[(l * 255f).toInt().coerceIn(0, 254) + 1] - lutTono[(l * 255f).toInt().coerceIn(0, 254)]) * ((l * 255f) - (l * 255f).toInt().coerceIn(0, 254))
+                        if (l > 0.04f) { val q = t / l; r2 *= q; g2 *= q; b2 *= q } else { val d = t - l; r2 += d; g2 += d; b2 += d }
+                    }
+                    R[i] = r2; G[i] = g2; B[i] = b2
                     gv[i] = lr * R[i] + lg * G[i] + lb * B[i]
                 }
             }
@@ -456,6 +482,54 @@ object Sviluppo {
         val h = (g - b) / (r - b + 1e-6f) // 0 = rosso, 1 = giallo
         val s = (r - b) / (r + 1e-6f)
         return h in 0.25f..0.75f && s in 0.15f..0.65f
+    }
+
+    /**
+     * Curva del tono (in gamma) che porta la distribuzione delle luminanze della nostra resa su quella del JPEG
+     * di Google, più il rapporto di saturazione. [resa] dà il colore lineare (display P3) del pixel i a bassa risoluzione.
+     */
+    fun curvaDaRiferimento(
+        rf: Riferimento, n: Int, lr: Float, lg: Float, lb: Float, stile: Stile, resa: (Int) -> FloatArray,
+    ): Pair<FloatArray, Float> {
+        val nostra = DoubleArray(256)
+        var satN = 0.0; var cntN = 0
+        for (i in 0 until n) {
+            val c = resa(i)
+            val r = s_curva(Colore.aSrgb(c[0]), stile.contrasto)
+            val g = s_curva(Colore.aSrgb(c[1]), stile.contrasto)
+            val b = s_curva(Colore.aSrgb(c[2]), stile.contrasto)
+            val l = lr * r + lg * g + lb * b
+            nostra[(l * 255).toInt().coerceIn(0, 255)]++
+            if (l in 0.2f..0.85f) { satN += (max(r, max(g, b)) - min(r, min(g, b))).toDouble(); cntN++ }
+        }
+        val google = DoubleArray(256)
+        var satG = 0.0; var cntG = 0
+        for (p in rf.pixel) {
+            val r = ((p shr 16) and 0xFF) / 255f; val g = ((p shr 8) and 0xFF) / 255f; val b = (p and 0xFF) / 255f
+            val l = lr * r + lg * g + lb * b
+            google[(l * 255).toInt().coerceIn(0, 255)]++
+            if (l in 0.2f..0.85f) { satG += (max(r, max(g, b)) - min(r, min(g, b))).toDouble(); cntG++ }
+        }
+        fun cdf(h: DoubleArray): DoubleArray { val t = h.sum(); var s = 0.0; return DoubleArray(256) { s += h[it]; s / t } }
+        val cN = cdf(nostra); val cG = cdf(google)
+        // per ogni livello nostro, il livello di Google con la stessa percentuale di pixel più scuri
+        val grezza = FloatArray(256) { v ->
+            var j = 0
+            while (j < 255 && cG[j] < cN[v]) j++
+            j / 255f
+        }
+        // levigata, sempre crescente, pendenza contenuta, e mescolata con la nostra secondo lo stile
+        val lev = FloatArray(256) { v -> (-4..4).map { grezza[(v + it).coerceIn(0, 255)] }.average().toFloat() }
+        val lut = FloatArray(256)
+        var prima = 0f
+        for (v in 0..255) {
+            val id = v / 255f
+            val m = id + (lev[v] - id) * stile.tonoGoogle
+            val lim = if (v == 0) m else m.coerceIn(prima + 0.3f / 255f, prima + 3f / 255f)
+            lut[v] = lim.coerceIn(0f, 1f); prima = lut[v]
+        }
+        val sat = if (cntN > 50 && cntG > 50 && satN > 0) ((satG / cntG) / (satN / cntN)).toFloat().coerceIn(0.85f, 1.6f) else 1f
+        return lut to (1f + (sat - 1f) * stile.tonoGoogle)
     }
 
     /** Mediana della luminanza lineare del JPEG di riferimento. */

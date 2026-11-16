@@ -69,6 +69,35 @@ class MotoreTest {
         for (i in 0..2) assertTrue("neutro ${n.toList()} invece di ${vero.toList()}", abs(n[i] - vero[i]) / vero[i] < 0.08)
     }
 
+    /** Con un JPEG di Google più contrastato, la resa ne segue i toni (scure più scure, chiare più chiare). */
+    @Test
+    fun tonoComeGoogle() {
+        val dng = Dng.leggi(ByteBuffer.wrap(risorsa("sintetico.dng")))
+        val (w, h) = Sviluppo.dimensioni(dng)
+        fun sviluppa(rif: Riferimento?): IntArray {
+            val img = IntArray(w * h)
+            Sviluppo.sviluppa(dng, Opzioni(riferimento = rif)) { x, y, bw, bh, px ->
+                for (r in 0 until bh) System.arraycopy(px, r * bw, img, (y + r) * w + x, bw)
+            }
+            return img
+        }
+        fun lum(p: Int) = 0.23f * ((p shr 16) and 255) + 0.69f * ((p shr 8) and 255) + 0.08f * (p and 255)
+        fun perc(img: IntArray, q: Double) = img.map { lum(it) }.sorted()[((img.size - 1) * q).toInt()]
+        val base = sviluppa(null)
+        // "Google": stessa foto con una S marcata
+        val google = IntArray(base.size) { i ->
+            val p = base[i]
+            fun s(v: Int): Int { val x = v / 255f; val y = x + (x * x * (3 - 2 * x) - x) * 0.9f; return (y * 255).toInt().coerceIn(0, 255) }
+            (0xFF shl 24) or (s((p shr 16) and 255) shl 16) or (s((p shr 8) and 255) shl 8) or s(p and 255)
+        }
+        val res = sviluppa(Riferimento(w, h, google))
+        for (q in listOf(0.1, 0.5, 0.9)) {
+            val dG = abs(perc(res, q) - perc(google, q))
+            val dB = abs(perc(base, q) - perc(google, q))
+            assertTrue("percentile $q: resa ${perc(res, q)}, Google ${perc(google, q)}, prima ${perc(base, q)}", dG <= dB * 0.5f + 4f)
+        }
+    }
+
     @Test
     fun coloreBianco() {
         val bianco = Colore.per(Colore.XYZ50_A_P3, doubleArrayOf(0.96422, 1.0, 0.82521))

@@ -147,10 +147,18 @@ object Elaboratore {
             BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply {
                 inSampleSize = campionamento(o.outWidth, o.outHeight, 1000)
                 inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.DISPLAY_P3)
+                inPreferredConfig = Bitmap.Config.ARGB_8888
             })
         } ?: return null
-        val px = IntArray(b.width * b.height)
-        b.getPixels(px, 0, b.width, 0, 0, b.width, b.height)
+        // getPixels convertirebbe in sRGB: si copiano i byte così come sono (Display P3, come la nostra resa)
+        val buf = ByteBuffer.allocate(b.byteCount)
+        b.copyPixelsToBuffer(buf)
+        val by = buf.array()
+        val passo = b.rowBytes
+        val px = IntArray(b.width * b.height) { i ->
+            val o = (i / b.width) * passo + (i % b.width) * 4 // ARGB_8888 in memoria: R, G, B, A
+            (0xFF shl 24) or ((by[o].toInt() and 0xFF) shl 16) or ((by[o + 1].toInt() and 0xFF) shl 8) or (by[o + 2].toInt() and 0xFF)
+        }
         return Riferimento(b.width, b.height, px).also { b.recycle() }
     }
 

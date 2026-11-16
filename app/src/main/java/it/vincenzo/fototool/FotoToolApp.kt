@@ -33,8 +33,8 @@ class FotoToolApp : Application() {
     }
 
     companion object {
-        /** 2 = bianco stimato dal JPEG di Google per i DNG senza AsShotNeutral (1.0.2) */
-        const val MOTORE = 2
+        /** 2 = bianco stimato dal JPEG di Google (1.0.2); 3 = tono e saturazione come Google, zone adattive (1.0.3) */
+        const val MOTORE = 3
     }
 
     override fun onCreate() {

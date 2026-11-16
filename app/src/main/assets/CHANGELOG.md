@@ -1,3 +1,9 @@
+Versione 1.0.3 — 16/11/2026
+- Foto meno piatte: luci e ombre per zone si usano solo nelle scene con forte contrasto (controluce), non più in quelle normali.
+- Tono e saturazione seguono quelli del JPEG di Google (contrasto, neri, colori), mantenendo dal RAW dettaglio, colore preciso e Ultra HDR.
+- Il JPEG di Google viene letto in Display P3, senza conversioni che falsavano la saturazione.
+- Le foto già migliorate vengono rifatte da sole con la nuova versione.
+
 Versione 1.0.2 — 16/11/2026
 - Corretto: le foto uscivano verdi. I RAW HDR+ del Pixel 8 Pro non contengono il bilanciamento del bianco: ora FotoTool lo legge dove c'è (AsShotNeutral o AsShotWhiteXY) e, se manca, lo calcola confrontando il RAW con il JPEG di Google.
 - Le foto già migliorate con la versione precedente vengono rifatte da sole.
