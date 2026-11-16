@@ -34,8 +34,8 @@ class FotoToolApp : Application() {
 
     companion object {
         /** 2 = bianco stimato dal JPEG di Google (1.0.2); 3 = tono e saturazione come Google, zone adattive (1.0.3); 4 = dominante corretta per canale (1.0.4);
-         *  5 = nitidezza su due scale, meno levigatura, niente alone viola (1.0.6) */
-        const val MOTORE = 5
+         *  5 = nitidezza su due scale, meno levigatura, niente alone viola (1.0.6); 6 = alone viola cercato più lontano (1.0.7) */
+        const val MOTORE = 6
     }
 
     override fun onCreate() {

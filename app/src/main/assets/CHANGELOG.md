@@ -1,3 +1,6 @@
+Versione 1.0.7 — 16/11/2026
+- Alone viola tolto anche quando è largo (fino a 10 pixel dalla luce), com'è nelle foto a 50 MP.
+
 Versione 1.0.6 — 16/11/2026
 - Foto più nitide: nitidezza più forte su due scale (dettaglio fine e medio) e meno levigatura del rumore, che nei RAW HDR+ è già basso. Limite sui bordi forti per evitare aloni.
 - Tolto l'alone viola (aberrazione cromatica) vicino alle luci forti.

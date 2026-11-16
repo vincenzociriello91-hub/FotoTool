@@ -296,7 +296,7 @@ object Sviluppo {
         val gm = FloatArray(gmW * gmH)
         val margine = opz.margineHdr
         val esp = 2f.pow(ev)
-        val margineRighe = 4 + 4 * raggioCroma + 6
+        val margineRighe = 4 + 4 * raggioCroma + 12
         val fascia = max(64, min(256, 2_000_000 / W)) and 0x7FFFFFFE
         val sogliaSat = 0.95f
         var yOut = cy
@@ -410,9 +410,10 @@ object Sviluppo {
                     }
                     var rr = R[i]; var gg = G[i]; var bb = B[i]
                     // alone viola (aberrazione cromatica) accanto alle luci forti: si toglie il colore, non la luce
-                    if (min(rr, bb) - gg > 0.03f && bb >= gg && y >= 3 && y < bh - 3 && c >= 3 && c < W - 3) {
-                        var mx = 0f
-                        for (k in 1..3) mx = max(mx, max(max(gv[i - k], gv[i + k]), max(gv[i - k * W], gv[i + k * W])))
+                    // raggio 10 px: a 50 MP l'alone è largo (rapporti del 16/11/2026); anche il pixel stesso conta
+                    if (min(rr, bb) - gg > 0.03f && bb >= gg && y >= 10 && y < bh - 10 && c >= 10 && c < W - 10) {
+                        var mx = gv[i]
+                        for (k in 2..10 step 2) mx = max(mx, max(max(gv[i - k], gv[i + k]), max(gv[i - k * W], gv[i + k * W])))
                         if (mx > 0.8f) {
                             val l = gv[i]
                             val q = (1f - ((mx - 0.8f) / 0.12f).coerceIn(0f, 1f) * 0.8f)
