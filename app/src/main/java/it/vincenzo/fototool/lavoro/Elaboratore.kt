@@ -264,7 +264,8 @@ object Elaboratore {
             var e = 0L
             for (y in gy * mh / 4 until (gy + 1) * mh / 4 - 1) for (x in gx * mw / 4 until (gx + 1) * mw / 4 - 1)
                 e += kotlin.math.abs(l(x + 1, y) - l(x, y)) + kotlin.math.abs(l(x, y + 1) - l(x, y))
-            if (e > energia && !(gx in 1..2 && gy in 1..2)) // le 4 celle centrali le copre già il ritaglio "centro" { energia = e; migliore = gx to gy }
+            // le 4 celle centrali le copre già il ritaglio "centro"
+            if (e > energia && !(gx in 1..2 && gy in 1..2)) { energia = e; migliore = gx to gy }
         }
         val zone = listOf(
             "centro" to (0.5f to 0.5f),
