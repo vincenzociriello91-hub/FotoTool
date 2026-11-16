@@ -1,3 +1,7 @@
+Versione 1.0.8 — 16/11/2026
+- Con l'app aperta le foto si migliorano subito, a piena velocità (in background Android rallentava fino a 100-280 secondi per foto).
+- Corretto: la stessa foto poteva essere elaborata due volte di seguito.
+
 Versione 1.0.7 — 16/11/2026
 - Alone viola tolto anche quando è largo (fino a 10 pixel dalla luce), com'è nelle foto a 50 MP.
 

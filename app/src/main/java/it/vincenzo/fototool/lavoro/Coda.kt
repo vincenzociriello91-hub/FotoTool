@@ -20,6 +20,9 @@ object Coda {
 
     @Synchronized fun prossima(ctx: Context): Long? = attese(ctx).firstOrNull()
 
+    /** Prende e toglie subito la prossima foto: chi la prende è l'unico a elaborarla. */
+    @Synchronized fun prendi(ctx: Context): Long? = attese(ctx).firstOrNull()?.also { togli(ctx, it) }
+
     /** Generazione di MediaStore già controllata; -1 = mai (al primo avvio si parte da adesso, non dal passato). */
     fun generazione(ctx: Context): Long = p(ctx).getLong("generazione", -1)
     fun impostaGenerazione(ctx: Context, g: Long) = p(ctx).edit().putLong("generazione", g).apply()
