@@ -1,6 +1,5 @@
 package it.vincenzo.fototool
 
-import it.vincenzo.fototool.lavoro.Servizio
 import android.app.Application
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -29,7 +28,6 @@ class FotoToolApp : Application() {
             Reports.log("Motore aggiornato alla versione $MOTORE: rifaccio ${ids.size} foto")
             Archivio.togli(this@FotoToolApp, ids)
             Coda.aggiungi(this@FotoToolApp, ids)
-            Elaborazione.avvia(this@FotoToolApp)
         }
     }
 
@@ -48,17 +46,15 @@ class FotoToolApp : Application() {
             runCatching { Reports.saveCrash(e) }
             previous?.uncaughtException(t, e)
         }
-        Osservatore.programma(this)
-        if (checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED)
-            Servizio.avvia(this)
+        Osservatore.annullaAutomatico(this)
         rifaiConMotoreNuovo()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 Reports.log("App in primo piano")
                 scope.launch {
+                    // solo ricerca: lo sviluppo parte dal pulsante
                     runCatching { Osservatore.controlla(this@FotoToolApp) }
-                    if (Coda.attese(this@FotoToolApp).isNotEmpty()) Elaborazione.avvia(this@FotoToolApp)
                     Reports.sendQueue()
                 }
             }

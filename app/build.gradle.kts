@@ -13,8 +13,8 @@ android {
         // Gain map Ultra HDR (Bitmap.setGainmap) dalla 34: l'app è per il Pixel 8 Pro di Vincenzo
         minSdk = 34
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.0.10"
+        versionCode = 12
+        versionName = "1.0.11"
     }
 
     // Scelta di Vincenzo ("tutto pubblico"): chiave nella cartella firma/ del repository

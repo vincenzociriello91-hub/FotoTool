@@ -65,7 +65,7 @@ class Elaborazione : JobService() {
             val inPrimoPiano = runCatching {
                 androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
             }.getOrDefault(false)
-            if (inPrimoPiano || Servizio.attivo) {
+            if (inPrimoPiano) {
                 Thread {
                     android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DEFAULT)
                     svuota(ctx.applicationContext) { false }

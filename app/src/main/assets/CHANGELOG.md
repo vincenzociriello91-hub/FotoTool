@@ -1,3 +1,8 @@
+Versione 1.0.11 — 16/11/2026
+- Niente più miglioramento automatico: FotoTool trova le foto RAW nuove e ti dice quante sono, ma le migliora solo quando premi "Migliora".
+- Tolti la notifica fissa e il lavoro in background.
+- Se non ci sono foto nuove, il pulsante migliora le ultime 5 foto RAW non ancora migliorate.
+
 Versione 1.0.10 — 16/11/2026
 - Tolto il pulsante "Migliora le ultime foto RAW": FotoTool fa tutto da solo. All'apertura controlla subito se ci sono RAW nuovi e li migliora senza che tu prema niente.
 

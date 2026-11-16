@@ -89,7 +89,6 @@ import it.vincenzo.fototool.lavoro.Elaboratore
 import it.vincenzo.fototool.lavoro.Elaborazione
 import it.vincenzo.fototool.lavoro.Galleria
 import it.vincenzo.fototool.lavoro.Osservatore
-import it.vincenzo.fototool.lavoro.Servizio
 import it.vincenzo.fototool.motore.Stili
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -132,13 +131,21 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
     var permesso by remember { mutableStateOf(haFoto(ctx)) }
     val voci by Archivio.flusso.collectAsState()
     val inCorso by Elaboratore.inCorso.collectAsState()
+    var attese by remember { mutableStateOf(0) }
+    var messaggio by remember { mutableStateOf<String?>(null) }
+    // la ricerca all'apertura gira in FotoToolApp: qui si rilegge la coda all'apertura e a ogni foto finita
+    LaunchedEffect(inCorso) { withContext(Dispatchers.IO) { kotlinx.coroutines.delay(800); attese = Coda.attese(ctx).size } }
     val chiedi = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permesso = haFoto(ctx)
         Reports.log("Permessi foto: ${it.entries.joinToString { (k, v) -> "${k.substringAfterLast('.')}=$v" }}")
-        if (permesso) scope.launch(Dispatchers.IO) { Osservatore.programma(ctx); Servizio.avvia(ctx); Osservatore.controlla(ctx) }
+        if (permesso) scope.launch(Dispatchers.IO) { Osservatore.controlla(ctx); attese = Coda.attese(ctx).size }
     }
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Archivio.voci(ctx) } }
-    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { permesso = haFoto(ctx); onPauseOrDispose { } }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        permesso = haFoto(ctx)
+        scope.launch(Dispatchers.IO) { runCatching { Osservatore.controlla(ctx) }; attese = Coda.attese(ctx).size }
+        onPauseOrDispose { }
+    }
 
     LazyVerticalGrid(
         GridCells.Adaptive(160.dp), Modifier.fillMaxSize().statusBarsPadding(),
@@ -148,7 +155,7 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("FotoTool", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text("Le tue foto RAW di Pixel Camera, migliorate da sole.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Le tue foto RAW di Pixel Camera, migliorate quando vuoi tu.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!permesso) Sezione("Serve l'accesso alle foto", Icons.Filled.PhotoLibrary, Rgb.Rosso,
                     "Per vedere i RAW di Pixel Camera e salvare le versioni migliorate") {
                     Text("Scegli \"Consenti tutte\": con l'accesso solo ad alcune foto FotoTool non vede quelle nuove.", style = MaterialTheme.typography.bodySmall)
@@ -163,12 +170,36 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
                             Manifest.permission.ACCESS_MEDIA_LOCATION, Manifest.permission.POST_NOTIFICATIONS))
                     }) { Text("Consenti accesso alle foto") }
                 }
-                Sezione("Automatico", Icons.Filled.AutoAwesome, Rgb.Verde,
-                    if (inCorso != null) "Sto migliorando ${inCorso}…" else "In attesa di nuove foto RAW") {
+                Sezione("Migliora", Icons.Filled.AutoAwesome, Rgb.Verde,
+                    when {
+                        inCorso != null -> "Sto migliorando ${inCorso}…"
+                        attese > 0 -> "$attese foto RAW nuove da migliorare"
+                        else -> "Nessuna foto RAW nuova"
+                    }) {
                     if (inCorso != null) LinearProgressIndicator(Modifier.fillMaxWidth())
                     Text("Scatta con Pixel Camera con RAW attivo (Impostazioni → Avanzate → RAW + JPEG). " +
-                        "Non devi premere niente: FotoTool trova il DNG da solo (anche ad app chiusa), lo sviluppa e salva la versione migliorata in DCIM/FotoTool in Ultra HDR. L'originale resta com'è.",
+                        "FotoTool trova i DNG nuovi da solo, ma li sviluppa solo quando premi il pulsante, e salva la versione migliorata in DCIM/FotoTool in Ultra HDR. L'originale resta com'è.",
                         style = MaterialTheme.typography.bodySmall)
+                    messaggio?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                    Button(enabled = permesso && inCorso == null, onClick = {
+                        scope.launch(Dispatchers.IO) {
+                            if (Coda.attese(ctx).isEmpty()) {
+                                // niente di nuovo in coda: si propongono le ultime 5 non ancora migliorate
+                                val ultime = Galleria.ultimeDng(ctx, 5).filter { !Archivio.contiene(ctx, it.id) }
+                                if (ultime.isEmpty()) {
+                                    val d = Galleria.diagnosi(ctx)
+                                    messaggio = "Nessuna foto RAW da migliorare ($d)."
+                                    Reports.log("Pulsante senza RAW da migliorare: $d")
+                                    return@launch
+                                }
+                                Coda.aggiungi(ctx, ultime.map { it.id })
+                            }
+                            attese = Coda.attese(ctx).size
+                            messaggio = null
+                            Reports.log("Pulsante Migliora: $attese foto in coda")
+                            Elaborazione.avvia(ctx)
+                        }
+                    }) { Text(if (attese > 0) "Migliora $attese foto" else "Migliora le ultime foto RAW") }
                 }
                 if (!voci.isNullOrEmpty()) Text("Migliorate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }

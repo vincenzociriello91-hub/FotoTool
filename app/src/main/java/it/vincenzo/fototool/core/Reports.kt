@@ -103,7 +103,6 @@ object Reports {
         put("inCoda") { Coda.attese(ctx).size }
         put("permessoFoto") { ctx.checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED }
         put("pixelCamera") { runCatching { ctx.packageManager.getPackageInfo("com.google.android.GoogleCamera", 0).versionName }.getOrNull() }
-        put("osservatoreProgrammato") { it.vincenzo.fototool.lavoro.Osservatore.programmato(ctx) }
         put("memoriaApp") { "${Runtime.getRuntime().maxMemory() shr 20} MB" }
         put("spazioLibero") { StatFs(Environment.getExternalStorageDirectory().path).let { "${it.availableBytes shr 30} GB" } }
         put("batteria") {
