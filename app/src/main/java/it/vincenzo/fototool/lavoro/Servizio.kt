@@ -22,8 +22,12 @@ class Servizio : Service() {
         val n = Notification.Builder(this, CANALE).setSmallIcon(android.R.drawable.ic_menu_camera)
             .setContentTitle("FotoTool").setContentText("Miglioro le foto RAW…").setOngoing(true).build()
         startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        // a schermo spento il telefono si addormentava a metà sviluppo: 100-185 s invece di 15 (rapporti del 16/11/2026)
+        val sveglia = getSystemService(android.os.PowerManager::class.java)
+            .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "FotoTool:miglioramento")
+        sveglia.acquire(60 * 60 * 1000L)
         Thread {
-            Elaborazione.svuota(applicationContext) { false }
+            try { Elaborazione.svuota(applicationContext) { false } } finally { if (sveglia.isHeld) sveglia.release() }
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }.start()

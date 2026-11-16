@@ -407,6 +407,8 @@ object Sviluppo {
                             val medio = (gv[i - 2] + gv[i + 2] + gv[i - 2 * W] + gv[i + 2 * W]) / 4f
                             d += (sfoc - medio) * quanto * 0.6f
                         }
+                        // nelle ombre la nitidezza accentuava i puntini di rumore (rapporti del 16/11/2026): lì si attenua
+                        d *= 0.3f + 0.7f * ((gv[i] - 0.10f) / 0.20f).coerceIn(0f, 1f)
                         d = d.coerceIn(-0.12f, 0.12f) // niente aloni bianchi o neri sui bordi forti
                     }
                     var rr = R[i]; var gg = G[i]; var bb = B[i]

@@ -1,3 +1,7 @@
+Versione 1.0.13 — 16/11/2026
+- Il miglioramento resta veloce anche a schermo spento (prima il telefono si addormentava: fino a 3 minuti per foto).
+- Ombre più pulite: la nitidezza non accentua più i puntini di rumore nelle zone scure.
+
 Versione 1.0.12 — 16/11/2026
 - Dopo aver premuto "Migliora" puoi uscire dall'app: il lavoro continua a piena velocità (prima passava da 13 s a 1-3 minuti per foto).
 - Più dettaglio nei toni medi (asfalto, muri, erba): meno levigatura, più vicino alla nitidezza di Google.
