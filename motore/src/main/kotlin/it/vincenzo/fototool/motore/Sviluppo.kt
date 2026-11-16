@@ -279,7 +279,8 @@ object Sviluppo {
         val xMid = GRIGIO / guadEsp
         val sigmaG = (1.16 * guadEsp * sqrt(max(sS * xMid + sO, 1e-12))).toFloat()
         par["rumore a grigio medio (gamma)"] = "%.4f".format(sigmaG)
-        val epsLuma = (0.8f * sigmaG * stile.rumoreLuma).pow(2)
+        // più forte di prima ma applicata per intero solo nelle ombre (vedi riduciRumore): l'asfalto a grigio medio era più liscio di Google
+        val epsLuma = (1.1f * sigmaG * stile.rumoreLuma).pow(2)
         val raggioCroma = when { sigmaG > 0.02f -> 6; sigmaG > 0.008f -> 4; else -> 2 }
         par["riduzione rumore"] = "luma eps %.2e, croma raggio %d".format(epsLuma, raggioCroma)
 
@@ -655,6 +656,16 @@ object Sviluppo {
             val f1 = FloatArray(hw * hh); val f2 = FloatArray(hw * hh)
             Filtri.guidato(gy, c1, hw, hh, raggio, 0.0006f, f1)
             Filtri.guidato(gy, c2, hw, hh, raggio, 0.0006f, f2)
+            // nelle ombre la guida è anch'essa rumore e lascia puntini colorati (rapporti del 16/11/2026): lì media semplice più larga
+            val tmpM = FloatArray(hw * hh); val b1 = FloatArray(hw * hh); val b2 = FloatArray(hw * hh)
+            Filtri.media(c1, hw, hh, 2 * raggio, tmpM, b1)
+            Filtri.media(c2, hw, hh, 2 * raggio, tmpM, b2)
+            Filtri.perRighe(hh) { y ->
+                for (j in y * hw until (y + 1) * hw) {
+                    val t = ((0.30f - gy[j]) / 0.20f).coerceIn(0f, 1f)
+                    f1[j] += (b1[j] - f1[j]) * t; f2[j] += (b2[j] - f2[j]) * t
+                }
+            }
             val forza = stile.rumoreCroma.coerceIn(0f, 1f)
             val ing1 = Filtri.Ingrandimento(f1, hw, hh, w, 0.5f, -0.25f)
             val ing2 = Filtri.Ingrandimento(f2, hw, hh, w, 0.5f, -0.25f)
@@ -686,7 +697,10 @@ object Sviluppo {
             Filtri.perRighe(h) { y ->
                 for (i in y * w until (y + 1) * w) {
                     if (yg[i] <= 1e-5f) continue
-                    val s = Colore.daSrgb(f[i].coerceIn(0f, 1f)) / max(Colore.daSrgb(yg[i]), 1e-7f)
+                    // piena nelle ombre, un terzo nei toni medi e chiari, dove il rumore si vede poco e la trama sì
+                    val peso = 1f - 0.65f * ((yg[i] - 0.2f) / 0.3f).coerceIn(0f, 1f)
+                    val fy = yg[i] + (f[i] - yg[i]) * peso
+                    val s = Colore.daSrgb(fy.coerceIn(0f, 1f)) / max(Colore.daSrgb(yg[i]), 1e-7f)
                     R[i] *= s; G[i] *= s; B[i] *= s
                 }
             }

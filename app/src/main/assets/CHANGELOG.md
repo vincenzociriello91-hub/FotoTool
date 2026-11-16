@@ -1,3 +1,9 @@
+Versione 1.0.12 — 16/11/2026
+- Dopo aver premuto "Migliora" puoi uscire dall'app: il lavoro continua a piena velocità (prima passava da 13 s a 1-3 minuti per foto).
+- Più dettaglio nei toni medi (asfalto, muri, erba): meno levigatura, più vicino alla nitidezza di Google.
+- Ombre più pulite: niente più puntini colorati nelle zone scure.
+- Le foto già migliorate tornano tra quelle da migliorare col motore nuovo: partono solo quando premi il pulsante.
+
 Versione 1.0.11 — 16/11/2026
 - Niente più miglioramento automatico: FotoTool trova le foto RAW nuove e ti dice quante sono, ma le migliora solo quando premi "Migliora".
 - Tolti la notifica fissa e il lavoro in background.
