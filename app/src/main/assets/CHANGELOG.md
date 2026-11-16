@@ -1,3 +1,6 @@
+Versione 1.0.10 — 16/11/2026
+- Tolto il pulsante "Migliora le ultime foto RAW": FotoTool fa tutto da solo. All'apertura controlla subito se ci sono RAW nuovi e li migliora senza che tu prema niente.
+
 Versione 1.0.9 — 16/11/2026
 - FotoTool resta attivo con una piccola notifica fissa: ogni nuova foto RAW viene vista subito e migliorata a piena velocità anche ad app chiusa (prima Android la rimandava anche di 47 minuti e la rallentava fino a 5 minuti).
 - La notifica dice quale foto si sta migliorando. Si può silenziare dalle impostazioni delle notifiche senza fermare FotoTool.

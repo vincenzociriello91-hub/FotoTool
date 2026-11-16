@@ -132,7 +132,6 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
     var permesso by remember { mutableStateOf(haFoto(ctx)) }
     val voci by Archivio.flusso.collectAsState()
     val inCorso by Elaboratore.inCorso.collectAsState()
-    var messaggio by remember { mutableStateOf<String?>(null) }
     val chiedi = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permesso = haFoto(ctx)
         Reports.log("Permessi foto: ${it.entries.joinToString { (k, v) -> "${k.substringAfterLast('.')}=$v" }}")
@@ -168,25 +167,8 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
                     if (inCorso != null) "Sto migliorando ${inCorso}…" else "In attesa di nuove foto RAW") {
                     if (inCorso != null) LinearProgressIndicator(Modifier.fillMaxWidth())
                     Text("Scatta con Pixel Camera con RAW attivo (Impostazioni → Avanzate → RAW + JPEG). " +
-                        "FotoTool trova il DNG, lo sviluppa e salva la versione migliorata in DCIM/FotoTool in Ultra HDR. L'originale resta com'è.",
+                        "Non devi premere niente: FotoTool trova il DNG da solo (anche ad app chiusa), lo sviluppa e salva la versione migliorata in DCIM/FotoTool in Ultra HDR. L'originale resta com'è.",
                         style = MaterialTheme.typography.bodySmall)
-                    messaggio?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                    FilledTonalButton(enabled = permesso, onClick = {
-                        scope.launch(Dispatchers.IO) {
-                            val ultime = Galleria.ultimeDng(ctx, 5).filter { !Archivio.contiene(ctx, it.id) }
-                            if (ultime.isEmpty()) {
-                                val d = Galleria.diagnosi(ctx)
-                                messaggio = "Nessuna foto RAW nuova da migliorare ($d)."
-                                Reports.log("Richiesta manuale senza RAW nuovi: $d, permesso completo ${haFoto(ctx)}")
-                            }
-                            else {
-                                Coda.aggiungi(ctx, ultime.map { it.id })
-                                Elaborazione.avvia(ctx)
-                                messaggio = "In coda: ${ultime.size} foto RAW. Le trovi qui sotto appena pronte."
-                                Reports.log("Richiesta manuale: ${ultime.size} foto in coda")
-                            }
-                        }
-                    }) { Text("Migliora le ultime foto RAW") }
                 }
                 if (!voci.isNullOrEmpty()) Text("Migliorate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
