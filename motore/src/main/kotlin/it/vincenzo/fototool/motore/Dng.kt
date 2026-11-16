@@ -17,6 +17,8 @@ class Dng private constructor(
     val nero: FloatArray,
     val bianco: Float,
     val neutro: DoubleArray,
+    /** Falso se il DNG non dice il bianco dello scatto: allora lo stima lo sviluppo (dal JPEG di Google). */
+    val neutroDaScatto: Boolean,
     val colore: Colore.Profilo,
     val esposizioneBase: Double,
     val profiloRumore: DoubleArray?,
@@ -167,8 +169,7 @@ class Dng private constructor(
             val bianco = (reali(50717)?.firstOrNull() ?: ((1 shl bps) - 1).toDouble()).toFloat()
 
             // Colore
-            val neutro = reali(50728) ?: doubleArrayOf(1.0, 1.0, 1.0).also { note["bilanciamento"] = "AsShotNeutral mancante" }
-            val profilo = Colore.Profilo(
+            val profiloTmp = Colore.Profilo(
                 matrice1 = reali(50721), matrice2 = reali(50722),
                 calibrazione1 = reali(50723), calibrazione2 = reali(50724),
                 avanti1 = reali(50964), avanti2 = reali(50965),
@@ -176,6 +177,12 @@ class Dng private constructor(
                 illuminante1 = interi(50778)?.firstOrNull()?.toInt() ?: 0,
                 illuminante2 = interi(50779)?.firstOrNull()?.toInt() ?: 0,
             )
+            val xy = reali(50729)
+            val neutro = reali(50728)?.also { note["bilanciamento"] = "AsShotNeutral" }
+                ?: xy?.takeIf { it.size >= 2 }?.let { Colore.neutroDaXY(profiloTmp, it[0], it[1]) }?.also { note["bilanciamento"] = "AsShotWhiteXY ${xy.joinToString()}" }
+                ?: doubleArrayOf(1.0, 1.0, 1.0).also { note["bilanciamento"] = "assente nel DNG: stimato in sviluppo" }
+            val daScatto = reali(50728) != null || (xy?.size ?: 0) >= 2
+            val profilo = profiloTmp
 
             // Opcode: la lista 2 (sul RAW) contiene la correzione dell'ombreggiatura dell'obiettivo
             val gainMaps = mutableListOf<GainMap>()
@@ -198,7 +205,7 @@ class Dng private constructor(
             )
 
             return Dng(
-                aw, ah, raw, cfa, nero, bianco, neutro, profilo,
+                aw, ah, raw, cfa, nero, bianco, neutro, daScatto, profilo,
                 esposizioneBase = reali(50730)?.firstOrNull() ?: 0.0,
                 profiloRumore = reali(51041),
                 gainMaps = gainMaps,

@@ -108,14 +108,16 @@ object Sviluppo {
         val H = dng.altezza
 
         // ---------- colore ----------
-        val col = Colore.calcola(dng.colore, dng.neutro)
+        val neutro = if (dng.neutroDaScatto) dng.neutro else stimaNeutro(dng, opz.riferimento)
+        if (!dng.neutroDaScatto) par["bianco stimato da"] = if (opz.riferimento != null) "JPEG di Google" else "media della scena"
+        val col = Colore.calcola(dng.colore, neutro)
         val M = Array(3) { r -> FloatArray(3) { c -> col.matrice[r][c].toFloat() } }
-        val wb = FloatArray(3) { (1.0 / dng.neutro[it]).toFloat() }
+        val wb = FloatArray(3) { (1.0 / neutro[it]).toFloat() }
         val L = Colore.LUMA.map { it.toFloat() }
         val (lr, lg, lb) = L
         par["temperatura colore (K)"] = col.temperatura.roundToInt()
         par["metodo colore"] = col.metodo
-        par["neutro"] = dng.neutro.joinToString { "%.4f".format(it) }
+        par["neutro"] = neutro.joinToString { "%.4f".format(it) }
         par["matrice verso P3"] = col.matrice.joinToString(" | ") { r -> r.joinToString { "%.3f".format(it) } }
 
         // ---------- normalizzazione + correzione obiettivo ----------
@@ -400,6 +402,46 @@ object Sviluppo {
         val (gbW, gbH, gb) = ruotaByte(byte, gmW, gmH, orient)
         par["gain map"] = "${gbW}x$gbH, fino a ${margine}x"
         return Esito(outW, outH, gb, gbW, gbH, margine, scena, stile.nome, par, tempi)
+    }
+
+    /**
+     * Bianco dello scatto quando il DNG non lo dice: si cerca il neutro per cui il RAW, sviluppato,
+     * ha lo stesso colore medio del JPEG di Google. Senza JPEG: media della scena grigia.
+     */
+    fun stimaNeutro(dng: Dng, rif: Riferimento?): DoubleArray {
+        val acc = DoubleArray(3)
+        val cnt = IntArray(3)
+        val passo = max(2, (dng.larghezza / 512) and 0x7FFFFFFE)
+        for (r in 0 until dng.altezza - 1 step passo) for (c in 0 until dng.larghezza - 1 step passo) {
+            val v = DoubleArray(4) { pos ->
+                val rr = r + (pos shr 1); val cc = c + (pos and 1)
+                ((dng.campione(rr, cc) - dng.nero[pos]) / (dng.bianco - dng.nero[pos])).toDouble()
+            }
+            if (v.any { it > 0.9 } || v.all { it < 0.01 }) continue // luci bruciate e buio pesto non dicono il colore
+            for (pos in 0..3) { val ch = dng.cfa[pos]; acc[ch] += v[pos]; cnt[ch]++ }
+        }
+        val m = DoubleArray(3) { acc[it] / max(1, cnt[it]) }
+        if (m.any { it <= 0 }) return doubleArrayOf(1.0, 1.0, 1.0)
+        if (rif == null) return DoubleArray(3) { m[it] / m[1] }
+        val lut = DoubleArray(256) { Colore.daSrgb(it / 255f).toDouble() }
+        val cg = DoubleArray(3)
+        var k = 0
+        for (p in rif.pixel) {
+            val px = doubleArrayOf(lut[(p shr 16) and 0xFF], lut[(p shr 8) and 0xFF], lut[p and 0xFF])
+            if (px.any { it > 0.95 } || px.all { it < 0.005 }) continue
+            for (i in 0..2) cg[i] += px[i]
+            k++
+        }
+        if (k == 0) return DoubleArray(3) { m[it] / m[1] }
+        // P3 = M(n)·(cam/n)  ⇒  n = cam / (M⁻¹·colore di Google), a meno di una scala; si itera per la temperatura
+        var n = doubleArrayOf(1.0, 1.0, 1.0)
+        repeat(4) {
+            val v = Colore.per(Colore.inversa(Colore.calcola(dng.colore, n).matrice), cg)
+            if (v.any { it <= 0 }) return DoubleArray(3) { m[it] / m[1] }
+            val nuovo = DoubleArray(3) { m[it] / v[it] }
+            n = DoubleArray(3) { nuovo[it] / nuovo[1] }
+        }
+        return n
     }
 
     private fun s_curva(v: Float, k: Float): Float {

@@ -5,6 +5,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import it.vincenzo.fototool.core.Reports
+import it.vincenzo.fototool.lavoro.Archivio
 import it.vincenzo.fototool.lavoro.Coda
 import it.vincenzo.fototool.lavoro.Elaborazione
 import it.vincenzo.fototool.lavoro.Osservatore
@@ -16,6 +17,26 @@ import kotlinx.coroutines.launch
 class FotoToolApp : Application() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** Quando il motore cambia in modo importante, le foto già fatte si rifanno da sole (una volta). */
+    private fun rifaiConMotoreNuovo() {
+        val p = getSharedPreferences("fototool", MODE_PRIVATE)
+        if (p.getInt("motore", 0) >= MOTORE) return
+        p.edit().putInt("motore", MOTORE).apply()
+        scope.launch {
+            val ids = Archivio.voci(this@FotoToolApp).map { it.id }
+            if (ids.isEmpty()) return@launch
+            Reports.log("Motore aggiornato alla versione $MOTORE: rifaccio ${ids.size} foto")
+            Archivio.togli(this@FotoToolApp, ids)
+            Coda.aggiungi(this@FotoToolApp, ids)
+            Elaborazione.avvia(this@FotoToolApp)
+        }
+    }
+
+    companion object {
+        /** 2 = bianco stimato dal JPEG di Google per i DNG senza AsShotNeutral (1.0.2) */
+        const val MOTORE = 2
+    }
+
     override fun onCreate() {
         super.onCreate()
         Reports.init(this)
@@ -26,6 +47,7 @@ class FotoToolApp : Application() {
             previous?.uncaughtException(t, e)
         }
         Osservatore.programma(this)
+        rifaiConMotoreNuovo()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {

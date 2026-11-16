@@ -1,5 +1,6 @@
 """Crea motore/src/test/resources/sintetico.dng: DNG in stile Pixel (tessere lossless JPEG, GainMap, ForwardMatrix)."""
-import numpy as np, struct, sys
+import numpy as np, struct, sys, os
+SENZA_NEUTRO = os.environ.get('SENZA_NEUTRO') == '1'  # come i DNG HDR+ del Pixel 8 Pro: niente AsShotNeutral
 sys.path.insert(0,'.')
 from ljpeg_codifica import encode
 W,H=320,256; TW,TH=64,64
@@ -81,8 +82,8 @@ toff=add(thumb)
 ifd0=write_ifd(ifd([(254,'I',[1]),(256,'I',[16]),(257,'I',[12]),(258,'H',[8,8,8]),(259,'H',[1]),(262,'H',[2]),(273,'I',[toff]),(277,'H',[3]),(278,'I',[12]),(279,'I',[len(thumb)]),
  (271,'A','Google'),(272,'A','Pixel 8 Pro'),(274,'H',[6]),(305,'A','HDR+ 1.0 prova'),(330,'I',[raw_ifd]),
  (50706,'B',[1,4,0,0]),(50708,'A','Google-Pixel 8 Pro'),(50721,'SR',cm1),(50722,'SR',cm2),(50964,'SR',fm),(50965,'SR',fm),
- (50778,'H',[17]),(50779,'H',[21]),(50728,'R',list(neutro)),(50730,'SR',[0.0]),(51041,'R',[2e-5,1e-7]*3)]))
+ (50778,'H',[17]),(50779,'H',[21]),*([] if SENZA_NEUTRO else [(50728,'R',list(neutro))]),(50730,'SR',[0.0]),(51041,'R',[2e-5,1e-7]*3)]))
 out[4:8]=struct.pack('<I',ifd0)
-open('sintetico.dng','wb').write(out)
+open('sintetico_senza_neutro.dng' if SENZA_NEUTRO else 'sintetico.dng','wb').write(out)
 raw.tofile('sintetico.raw')
 print('scritto',len(out),'byte')

@@ -59,5 +59,13 @@ object Archivio {
 
     fun contiene(ctx: Context, id: Long) = voci(ctx).any { it.id == id }
 
+    /** Toglie le voci indicate (le foto salvate restano): servono per rifarle con un motore migliore. */
+    @Synchronized fun togli(ctx: Context, ids: Collection<Long>) {
+        val l = voci(ctx).filter { it.id !in ids }
+        val a = JSONArray(); l.forEach { a.put(it.json()) }
+        file(ctx).writeText(a.toString())
+        stato.value = l
+    }
+
     fun miniatura(ctx: Context, id: Long, tipo: String) = File(File(ctx.filesDir, "miniature").apply { mkdirs() }, "${id}_$tipo.jpg")
 }

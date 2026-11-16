@@ -1,3 +1,7 @@
+Versione 1.0.2 — 16/11/2026
+- Corretto: le foto uscivano verdi. I RAW HDR+ del Pixel 8 Pro non contengono il bilanciamento del bianco: ora FotoTool lo legge dove c'è (AsShotNeutral o AsShotWhiteXY) e, se manca, lo calcola confrontando il RAW con il JPEG di Google.
+- Le foto già migliorate con la versione precedente vengono rifatte da sole.
+
 Versione 1.0.1 — 16/11/2026
 - Corretto: FotoTool non trovava le foto RAW di Pixel Camera. Ora le cerca senza il filtro che le escludeva.
 - Se l'accesso alle foto è solo parziale, l'app lo dice e apre direttamente le impostazioni per dare l'accesso a tutte.

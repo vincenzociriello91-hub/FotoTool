@@ -53,6 +53,22 @@ class MotoreTest {
         assertTrue("gain map sulle ombre", (esito.gainMap[160 / 4 * esito.gainLarghezza + 10].toInt() and 255) < 5)
     }
 
+    /** I DNG HDR+ del Pixel 8 Pro non hanno AsShotNeutral: il bianco si ricava dal JPEG di Google. */
+    @Test
+    fun biancoDalJpegDiGoogle() {
+        val conBianco = Dng.leggi(ByteBuffer.wrap(risorsa("sintetico.dng")))
+        val (w, h) = Sviluppo.dimensioni(conBianco)
+        val img = IntArray(w * h)
+        Sviluppo.sviluppa(conBianco, Opzioni()) { x, y, bw, bh, px ->
+            for (r in 0 until bh) System.arraycopy(px, r * bw, img, (y + r) * w + x, bw)
+        }
+        val senza = Dng.leggi(ByteBuffer.wrap(risorsa("sintetico_senza_neutro.dng")))
+        assertTrue("senza bianco nel DNG", !senza.neutroDaScatto)
+        val n = Sviluppo.stimaNeutro(senza, Riferimento(w, h, img))
+        val vero = doubleArrayOf(0.5, 1.0, 0.62)
+        for (i in 0..2) assertTrue("neutro ${n.toList()} invece di ${vero.toList()}", abs(n[i] - vero[i]) / vero[i] < 0.08)
+    }
+
     @Test
     fun coloreBianco() {
         val bianco = Colore.per(Colore.XYZ50_A_P3, doubleArrayOf(0.96422, 1.0, 0.82521))

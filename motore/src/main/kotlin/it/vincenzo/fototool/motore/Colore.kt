@@ -130,6 +130,19 @@ object Colore {
         return Risultato(matrice, temp, g, if (avanti != null) "ForwardMatrix" else "ColorMatrix")
     }
 
+    /** Neutro della fotocamera per un bianco dato come xy (AsShotWhiteXY), con la matrice interpolata a quella temperatura. */
+    fun neutroDaXY(p: Profilo, x: Double, y: Double): DoubleArray? {
+        val m1 = p.matrice1 ?: p.matrice2 ?: return null
+        val t1 = temperaturaIlluminante(p.illuminante1)
+        val t2 = temperaturaIlluminante(p.illuminante2)
+        val t = cct(x, y)
+        val g = if (p.matrice1 != null && p.matrice2 != null && t1 > 0 && t2 > 0 && t1 != t2)
+            ((1 / t - 1 / t2) / (1 / t1 - 1 / t2)).coerceIn(0.0, 1.0) else 1.0
+        val cm = if (p.matrice2 != null && p.matrice1 != null) misto(m(p.matrice1), m(p.matrice2), g) else m(m1)
+        val n = per(cm, doubleArrayOf(x / y, 1.0, (1 - x - y) / y))
+        return DoubleArray(3) { n[it] / n[1] }
+    }
+
     // ---------- curve di trasferimento ----------
     fun aSrgb(v: Float): Float = when {
         v <= 0f -> 0f
