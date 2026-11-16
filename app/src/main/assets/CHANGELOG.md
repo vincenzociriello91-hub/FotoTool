@@ -1,3 +1,8 @@
+Versione 1.0.1 — 16/11/2026
+- Corretto: FotoTool non trovava le foto RAW di Pixel Camera. Ora le cerca senza il filtro che le escludeva.
+- Se l'accesso alle foto è solo parziale, l'app lo dice e apre direttamente le impostazioni per dare l'accesso a tutte.
+- Se non trova RAW, scrive quanti DNG vede e di quale app sono (anche nel rapporto).
+
 Versione 1.0.0 — 16/11/2026
 - Prima versione di FotoTool.
 - Si accorge da sola di ogni nuova foto RAW (DNG) di Pixel Camera e la migliora in background, senza aprire l'app.

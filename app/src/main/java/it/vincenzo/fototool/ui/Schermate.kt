@@ -98,6 +98,8 @@ import java.util.Date
 import java.util.Locale
 
 private fun haFoto(ctx: Context) = ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
+private fun parziale(ctx: Context) = !haFoto(ctx) &&
+    ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
 
 @Composable
 fun App() {
@@ -136,6 +138,7 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
         if (permesso) scope.launch(Dispatchers.IO) { Osservatore.programma(ctx); Osservatore.controlla(ctx) }
     }
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Archivio.voci(ctx) } }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { permesso = haFoto(ctx); onPauseOrDispose { } }
 
     LazyVerticalGrid(
         GridCells.Adaptive(160.dp), Modifier.fillMaxSize().statusBarsPadding(),
@@ -149,9 +152,15 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
                 if (!permesso) Sezione("Serve l'accesso alle foto", Icons.Filled.PhotoLibrary, Rgb.Rosso,
                     "Per vedere i RAW di Pixel Camera e salvare le versioni migliorate") {
                     Text("Scegli \"Consenti tutte\": con l'accesso solo ad alcune foto FotoTool non vede quelle nuove.", style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = { chiedi.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.ACCESS_MEDIA_LOCATION)) }) {
-                        Text("Consenti accesso alle foto")
-                    }
+                    if (parziale(ctx)) {
+                        Text("Ora FotoTool vede solo alcune foto. Nelle impostazioni: Autorizzazioni → Foto e video → \"Consenti sempre tutte\".",
+                            style = MaterialTheme.typography.bodyMedium)
+                        Button(onClick = {
+                            ctx.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
+                        }) { Text("Apri le impostazioni dell'app") }
+                    } else Button(onClick = {
+                        chiedi.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED, Manifest.permission.ACCESS_MEDIA_LOCATION))
+                    }) { Text("Consenti accesso alle foto") }
                 }
                 Sezione("Automatico", Icons.Filled.AutoAwesome, Rgb.Verde,
                     if (inCorso != null) "Sto migliorando ${inCorso}…" else "In attesa di nuove foto RAW") {
@@ -163,7 +172,11 @@ fun SchermataFoto(apri: (Archivio.Voce) -> Unit) {
                     FilledTonalButton(enabled = permesso, onClick = {
                         scope.launch(Dispatchers.IO) {
                             val ultime = Galleria.ultimeDng(ctx, 5).filter { !Archivio.contiene(ctx, it.id) }
-                            if (ultime.isEmpty()) messaggio = "Nessuna foto RAW nuova da migliorare."
+                            if (ultime.isEmpty()) {
+                                val d = Galleria.diagnosi(ctx)
+                                messaggio = "Nessuna foto RAW nuova da migliorare ($d)."
+                                Reports.log("Richiesta manuale senza RAW nuovi: $d, permesso completo ${haFoto(ctx)}")
+                            }
                             else {
                                 Coda.aggiungi(ctx, ultime.map { it.id })
                                 Elaborazione.avvia(ctx)
