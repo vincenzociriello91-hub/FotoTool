@@ -144,12 +144,36 @@ object Colore {
     }
 
     // ---------- curve di trasferimento ----------
-    fun aSrgb(v: Float): Float = when {
+    fun aSrgbEsatta(v: Float): Float = when {
         v <= 0f -> 0f
         v <= 0.0031308f -> v * 12.92f
         v >= 1f -> 1f
         else -> (1.055 * v.toDouble().pow(1 / 2.4) - 0.055).toFloat()
     }
 
-    fun daSrgb(v: Float): Float = if (v <= 0.04045f) v / 12.92f else ((v + 0.055) / 1.055).pow(2.4).toFloat()
+    // Indice sulla radice quadrata: la curva diventa quasi dritta e basta una tabella piccola (sta nella cache)
+    private const val PASSI_A = 1024
+    private val TAB_A = FloatArray(PASSI_A + 1) { val q = it.toFloat() / PASSI_A; aSrgbEsatta(q * q) }
+
+    fun aSrgb(v: Float): Float {
+        if (v <= 0f) return 0f
+        if (v >= 1f) return 1f
+        val f = kotlin.math.sqrt(v) * PASSI_A
+        val i = f.toInt()
+        return TAB_A[i] + (TAB_A[i + 1] - TAB_A[i]) * (f - i)
+    }
+
+    fun daSrgbEsatta(v: Float): Float = if (v <= 0.04045f) v / 12.92f else ((v + 0.055) / 1.055).pow(2.4).toFloat()
+
+    // Tabelle con interpolazione lineare: errore sotto 1/10 di livello a 8 bit, molto più veloci di pow
+    private const val PASSI = 4096
+    private val TAB_DA = FloatArray(PASSI + 1) { daSrgbEsatta(it.toFloat() / PASSI) }
+
+    fun daSrgb(v: Float): Float {
+        if (v <= 0f) return v / 12.92f
+        if (v >= 1f) return daSrgbEsatta(v)
+        val f = v * PASSI
+        val i = f.toInt()
+        return TAB_DA[i] + (TAB_DA[i + 1] - TAB_DA[i]) * (f - i)
+    }
 }

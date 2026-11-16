@@ -1,3 +1,9 @@
+Versione 1.0.4 — 16/11/2026
+- Corretta la dominante calda: oltre a tono e saturazione, FotoTool allinea anche il colore medio di ogni canale a quello del JPEG di Google.
+- Toni più vicini a Google (la foto delle piastrelle non esce più più scura).
+- Sviluppo circa il 25% più veloce: le mappe di luci, ombre e rumore si ingrandiscono una riga alla volta invece che pixel per pixel.
+- Le foto già migliorate vengono rifatte da sole.
+
 Versione 1.0.3 — 16/11/2026
 - Foto meno piatte: luci e ombre per zone si usano solo nelle scene con forte contrasto (controluce), non più in quelle normali.
 - Tono e saturazione seguono quelli del JPEG di Google (contrasto, neri, colori), mantenendo dal RAW dettaglio, colore preciso e Ultra HDR.

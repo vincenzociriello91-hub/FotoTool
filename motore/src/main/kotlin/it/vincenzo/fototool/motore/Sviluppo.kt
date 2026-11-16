@@ -28,7 +28,7 @@ data class Stile(
     val rumoreCroma: Float = 1.0f,
     val biancoNero: Boolean = false,
     /** Quanto seguire tono e saturazione del JPEG di Google (0 = per niente, 1 = uguale). */
-    val tonoGoogle: Float = 0.85f,
+    val tonoGoogle: Float = 0.95f,
 )
 
 object Stili {
@@ -264,11 +264,12 @@ object Sviluppo {
                 val s = if (y > 1e-6f) curva(y) / y else 0f
                 floatArrayOf(lowR[i] * 2f.pow(ev + guad[i]) * s, lowG[i] * 2f.pow(ev + guad[i]) * s, lowB[i] * 2f.pow(ev + guad[i]) * s)
             }
-            par["tono da Google"] = "forza ${stile.tonoGoogle}, saturazione x%.2f".format(lut.second)
+            par["tono da Google"] = "forza ${stile.tonoGoogle}, saturazione x%.2f, canali %s".format(lut.saturazione, lut.canali.joinToString { "%.3f".format(it) })
             lut
         }
-        val lutTono = tono?.first
-        val satGoogle = tono?.second ?: 1f
+        val lutTono = tono?.lut
+        val satGoogle = tono?.saturazione ?: 1f
+        val canali = tono?.canali ?: floatArrayOf(1f, 1f, 1f)
 
         // ---------- rumore stimato ----------
         val prof = dng.profiloRumore
@@ -338,17 +339,21 @@ object Sviluppo {
             val out = IntArray(cw * (yb - ya))
             val gv = FloatArray(np) // valori in gamma per la nitidezza
             val yLin = FloatArray(np)
+            val ingA = Filtri.Ingrandimento(coA, lw, lh, W, 1f / blocco, -0.5f)
+            val ingB = Filtri.Ingrandimento(coB, lw, lh, W, 1f / blocco, -0.5f)
             Filtri.perRighe(bh) { y ->
                 val r = r0 + y
                 val fy = r.toFloat() / blocco - 0.5f
+                val tmp = FloatArray(lw)
+                val rigaA = FloatArray(W).also { ingA.riga(fy, tmp, it) }
+                val rigaB = FloatArray(W).also { ingB.riga(fy, tmp, it) }
                 for (c in 0 until W) {
                     val i = y * W + c
                     // filtro guidato veloce: coefficienti ingranditi, base calcolata sulla luminanza vera del pixel
-                    val fx = c.toFloat() / blocco - 0.5f
                     val ys = max(lr * R[i] + lg * G[i] + lb * B[i], 1e-6f)
                     yLin[i] = ys
                     val ls = log2(ys)
-                    val b0 = Filtri.bilineare(coA, lw, lh, fx, fy) * (ls - ev) + Filtri.bilineare(coB, lw, lh, fx, fy) + ev
+                    val b0 = rigaA[c] * (ls - ev) + rigaB[c] + ev
                     val f = 2f.pow(guadagnoZona(b0, ls - b0))
                     var rr = max(R[i] * f, 0f); var gg = max(G[i] * f, 0f); var bb = max(B[i] * f, 0f)
                     val yy = lr * rr + lg * gg + lb * bb
@@ -372,6 +377,7 @@ object Sviluppo {
                     var g2 = s_curva(Colore.aSrgb(gg), stile.contrasto)
                     var b2 = s_curva(Colore.aSrgb(bb), stile.contrasto)
                     if (lutTono != null) {
+                        r2 *= canali[0]; g2 *= canali[1]; b2 *= canali[2]
                         val l = lr * r2 + lg * g2 + lb * b2
                         val t = lutTono[(l * 255f).toInt().coerceIn(0, 255)] +
                             (lutTono[(l * 255f).toInt().coerceIn(0, 254) + 1] - lutTono[(l * 255f).toInt().coerceIn(0, 254)]) * ((l * 255f) - (l * 255f).toInt().coerceIn(0, 254))
@@ -490,8 +496,9 @@ object Sviluppo {
      */
     fun curvaDaRiferimento(
         rf: Riferimento, n: Int, lr: Float, lg: Float, lb: Float, stile: Stile, resa: (Int) -> FloatArray,
-    ): Pair<FloatArray, Float> {
+    ): Tono {
         val nostra = DoubleArray(256)
+        val mediaN = DoubleArray(3); val mediaG = DoubleArray(3)
         var satN = 0.0; var cntN = 0
         for (i in 0 until n) {
             val c = resa(i)
@@ -500,7 +507,7 @@ object Sviluppo {
             val b = s_curva(Colore.aSrgb(c[2]), stile.contrasto)
             val l = lr * r + lg * g + lb * b
             nostra[(l * 255).toInt().coerceIn(0, 255)]++
-            if (l in 0.2f..0.85f) { satN += (max(r, max(g, b)) - min(r, min(g, b))).toDouble(); cntN++ }
+            if (l in 0.2f..0.85f) { satN += (max(r, max(g, b)) - min(r, min(g, b))).toDouble(); cntN++; mediaN[0] += r.toDouble(); mediaN[1] += g.toDouble(); mediaN[2] += b.toDouble() }
         }
         val google = DoubleArray(256)
         var satG = 0.0; var cntG = 0
@@ -508,7 +515,7 @@ object Sviluppo {
             val r = ((p shr 16) and 0xFF) / 255f; val g = ((p shr 8) and 0xFF) / 255f; val b = (p and 0xFF) / 255f
             val l = lr * r + lg * g + lb * b
             google[(l * 255).toInt().coerceIn(0, 255)]++
-            if (l in 0.2f..0.85f) { satG += (max(r, max(g, b)) - min(r, min(g, b))).toDouble(); cntG++ }
+            if (l in 0.2f..0.85f) { satG += (max(r, max(g, b)) - min(r, min(g, b))).toDouble(); cntG++; mediaG[0] += r.toDouble(); mediaG[1] += g.toDouble(); mediaG[2] += b.toDouble() }
         }
         fun cdf(h: DoubleArray): DoubleArray { val t = h.sum(); var s = 0.0; return DoubleArray(256) { s += h[it]; s / t } }
         val cN = cdf(nostra); val cG = cdf(google)
@@ -529,8 +536,20 @@ object Sviluppo {
             lut[v] = lim.coerceIn(0f, 1f); prima = lut[v]
         }
         val sat = if (cntN > 50 && cntG > 50 && satN > 0) ((satG / cntG) / (satN / cntN)).toFloat().coerceIn(0.85f, 1.6f) else 1f
-        return lut to (1f + (sat - 1f) * stile.tonoGoogle)
+        // dominante: rapporto per canale delle medie dei toni medi, a luminanza invariata
+        val canali = FloatArray(3) { 1f }
+        if (cntN > 50 && cntG > 50) {
+            val gN = mediaN.map { it / cntN }; val gG = mediaG.map { it / cntG }
+            val lN = lr * gN[0] + lg * gN[1] + lb * gN[2]; val lG = lr * gG[0] + lg * gG[1] + lb * gG[2]
+            for (c in 0..2) if (gN[c] > 0.01 && lG > 0.01) {
+                val k = ((gG[c] / lG) / (gN[c] / lN)).toFloat().coerceIn(0.85f, 1.18f)
+                canali[c] = 1f + (k - 1f) * stile.tonoGoogle
+            }
+        }
+        return Tono(lut, 1f + (sat - 1f) * stile.tonoGoogle, canali)
     }
+
+    class Tono(val lut: FloatArray, val saturazione: Float, val canali: FloatArray)
 
     /** Mediana della luminanza lineare del JPEG di riferimento. */
     private fun medianaRiferimento(rf: Riferimento, lr: Float, lg: Float, lb: Float): Float {
@@ -620,15 +639,19 @@ object Sviluppo {
             Filtri.guidato(gy, c1, hw, hh, raggio, 0.0006f, f1)
             Filtri.guidato(gy, c2, hw, hh, raggio, 0.0006f, f2)
             val forza = stile.rumoreCroma.coerceIn(0f, 1f)
+            val ing1 = Filtri.Ingrandimento(f1, hw, hh, w, 0.5f, -0.25f)
+            val ing2 = Filtri.Ingrandimento(f2, hw, hh, w, 0.5f, -0.25f)
             Filtri.perRighe(h) { y ->
                 val fy = y / 2f - 0.25f
+                val tmp = FloatArray(hw)
+                val riga1 = FloatArray(w).also { ing1.riga(fy, tmp, it) }
+                val riga2 = FloatArray(w).also { ing2.riga(fy, tmp, it) }
                 for (x in 0 until w) {
                     val i = y * w + x
-                    val fx = x / 2f - 0.25f
                     val yy = lr * R[i] + lg * G[i] + lb * B[i]
                     val o1 = R[i] - yy; val o2 = B[i] - yy
                     // il dettaglio fine di crominanza (sotto i 2 pixel) è quasi tutto rumore: si usa quella filtrata
-                    val m1 = Filtri.bilineare(f1, hw, hh, fx, fy); val m2 = Filtri.bilineare(f2, hw, hh, fx, fy)
+                    val m1 = riga1[x]; val m2 = riga2[x]
                     val d1 = o1 + (m1 - o1) * forza
                     val d2 = o2 + (m2 - o2) * forza
                     val r = yy + d1; val b = yy + d2

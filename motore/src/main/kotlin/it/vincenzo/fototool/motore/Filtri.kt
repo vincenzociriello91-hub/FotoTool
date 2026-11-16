@@ -84,6 +84,38 @@ object Filtri {
         return mg to mp
     }
 
+    /**
+     * Ingrandimento bilineare veloce di una mappa piccola (mw x mh) su una riga di [w] pixel:
+     * la parte orizzontale (indici e pesi) si calcola una volta, quella verticale una volta per riga.
+     * Stesso risultato di [bilineare] con fx = x·scala + spost.
+     */
+    class Ingrandimento(private val m: FloatArray, private val mw: Int, private val mh: Int, w: Int, scala: Float, spost: Float) {
+        private val x0 = IntArray(w)
+        private val tx = FloatArray(w)
+        init {
+            for (x in 0 until w) {
+                val f = (x * scala + spost).coerceIn(0f, (mw - 1).toFloat())
+                val i = f.toInt().coerceAtMost(mw - 1)
+                x0[x] = i; tx[x] = f - i
+            }
+        }
+
+        /** Riempie [out] (w valori) con la riga di mappa alla coordinata verticale [fy]; [tmp] è lungo mw. */
+        fun riga(fy: Float, tmp: FloatArray, out: FloatArray) {
+            val y = fy.coerceIn(0f, (mh - 1).toFloat())
+            val y0 = y.toInt().coerceAtMost(mh - 1)
+            val y1 = minOf(y0 + 1, mh - 1)
+            val ty = y - y0
+            val a = y0 * mw; val b = y1 * mw
+            for (i in 0 until mw) tmp[i] = m[a + i] + (m[b + i] - m[a + i]) * ty
+            for (x in out.indices) {
+                val i = x0[x]
+                val j = if (i + 1 < mw) i + 1 else i
+                out[x] = tmp[i] + (tmp[j] - tmp[i]) * tx[x]
+            }
+        }
+    }
+
     /** Campionamento bilineare di una mappa (mw x mh) in coordinate di mappa frazionarie. */
     fun bilineare(m: FloatArray, mw: Int, mh: Int, fx: Float, fy: Float): Float {
         val x = fx.coerceIn(0f, (mw - 1).toFloat())
